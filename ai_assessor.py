@@ -1,10 +1,11 @@
 import os
 import json
+import streamlit as st
 from openai import OpenAI
 
 
 def assess_form_with_openai(form_html_list: list[str]) -> dict:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set.")
 
