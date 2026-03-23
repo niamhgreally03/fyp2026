@@ -4,7 +4,6 @@ import streamlit as st
 import pandas as pd
 from scanner import run_all_checks, generate_recommendations
 
-
 def main():
     st.set_page_config(page_title="GDPR Website Compliance Checker", layout="wide")
 
@@ -114,12 +113,7 @@ def main():
             else:
                 st.success("No recommendations — all checks passed.")
 
-            
-
-        # ------------------------------------------------------------
         # What do these checks mean? (GDPR / Irish ePrivacy explanation)
-        # ------------------------------------------------------------
-
         st.markdown("---")
         st.header("What the checks mean (GDPR / Irish ePrivacy context)")
 
@@ -227,7 +221,6 @@ def main():
 Use this tool as a *first-pass indicator* to highlight likely website issues to investigate further.
 """
             )
-
 
 if __name__ == "__main__":
     main()

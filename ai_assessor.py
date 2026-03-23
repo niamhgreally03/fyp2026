@@ -1,9 +1,9 @@
+#ai_assessor.py
+
 import os
 import json
 import streamlit as st
 from openai import OpenAI
-
-
 def assess_form_with_openai(form_html_list: list[str]) -> dict:
     api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
     if not api_key:
@@ -28,11 +28,9 @@ Return valid JSON only:
   "decision": "Pass",
   "reason": "One short sentence explaining why."
 }}
-
 Form HTML:
 {forms_text}
 """
-
     response = client.responses.create(
         model="gpt-4.1-mini",
         input=prompt,

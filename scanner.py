@@ -3,11 +3,9 @@
 import requests   #http client (downloads html, sees cookies from headers)
 from urllib.parse import urlparse, urljoin   # parse-separates scheeme/host/path (used to force https), join-converts relativr links into absolute ones(privacy policy link detection)
 from bs4 import BeautifulSoup    # parses html into a searchable structure (find links/scripts/forms)
-
 from ai_assessor import assess_form_with_openai
 
-
-# --- Pattern lists ---
+#Pattern lists
 TRACKER_PATTERNS = [
     "googletagmanager.com",
     "google-analytics.com",
@@ -19,11 +17,9 @@ TRACKER_PATTERNS = [
     "linkedin.com/insight",
     "snap.licdn.com",
 ]
-
 NON_ESSENTIAL_COOKIE_PREFIXES = [
     "_ga", "_gid", "_gat", "_fbp", "fr", "IDE"
 ]
-
 # Weights (sum to 100) # Weights based on Irish DPC priorities
 WEIGHTS = {
     "HTTPS / SSL Enabled": 25,
@@ -32,7 +28,6 @@ WEIGHTS = {
     "Forms & Consent (Structure)": 15,
     "Tracker Indicators (Advisory)": 5,
 }
-
 RECOMMENDATIONS = {
     "HTTPS / SSL Enabled": (
         "Enable HTTPS site-wide and ensure a valid SSL/TLS certificate is installed "
@@ -56,7 +51,6 @@ RECOMMENDATIONS = {
         "Manually review whether they activate before consent and whether cookie/privacy disclosures are accurate."
     ),
 }
-
 
 # cleans input, ensures the url has a scheme (https://), if missing, defaults to HTTPS
 #EG most users type example.com not https://example.com
@@ -92,24 +86,7 @@ def fetch_response(url: str, timeout: int = 8):
     except Exception as e:
         return None, str(e)
 
-
-#def extract_forms_snippets(html: str, limit: int = 5) -> list[str]:
-#    """Return up to `limit` <form>...</form> snippets for AI review."""
-#    soup = BeautifulSoup(html, "html.parser")
-#    forms = soup.find_all("form")
-#    return [str(f) for f in forms[:limit]]
-
-
-#def extract_visible_text_excerpt(html: str, limit: int = 3500) -> str:
-#    """Extract visible text so AI can see notices near forms/footer."""
-#    soup = BeautifulSoup(html, "html.parser")
-#    return soup.get_text(separator=" ", strip=True)[:limit]
-
-
-# -----------------------
 # Checks
-# -----------------------
-
 #" can i reach this site over https without ssl errors"
 #this connects to GDPR article 32:security of processing. requires "appropriate technical and organisational measures" considering risk; it explicitly mentions encryption as an example measure. https/tls is transport encryption
 #"HTTPS IS not the whole of gdpr security, but its a baseline control for protecting personal data in transit"
@@ -132,8 +109,6 @@ def check_https(url: str, timeout: int = 5):
         return {"ok": False, "detail": "Connection timed out when trying HTTPS."}
     except Exception as e:
         return {"ok": False, "detail": f"Unexpected error: {e}"}
-
-
 
 #this only detects cookies set by server headers on the initial http response. thats usually "Set-Cookies" headers returned immediately
 #it doesnt detect cookies that are set later  by javascript(common with GA, FB pixel, etc, depednign on setup)
@@ -181,33 +156,27 @@ def check_cookie_headers(resp: requests.Response):
 # looks lfor anchor lags that likely point to privacy policy pages.
 #uses urljoin() to support links like /privacy properly
 #deduplicates links
-
 #why matters gpdr, Transparency (“right to be informed”) is a central GDPR obligation: Articles 12–14. The dpc also highlights transparency as part of individuals rights
 #the tool is testing  a minimal transparency signal: is there a discoverable policy link?,does it load successfully?does it look like it has meaning content(length threshold)?
 #doesnt prove- doesnt validate whether the policy contains required article 13 items(controller identity, purposed, lawful bases, recipients, transfers, retention, rights etc)
 #-doesnt check readability or clarity(article 12 requires clarity and accessibility)
 #-doesnt confirm the policy matches real processing
 #future work - NLP -based privacy policy completeness checks
-
 def find_privacy_policy_links(html: str, base_url: str):
     """Find candidate privacy policy links from homepage HTML."""
     soup = BeautifulSoup(html, "html.parser")
     candidates = []
-
     for a in soup.find_all("a"):
         text = (a.get_text() or "").strip().lower()
         href = (a.get("href") or "").strip()
         if not href:
             continue
-
         href_lower = href.lower()
         if "privacy" in href_lower or "data-protection" in href_lower:
             candidates.append(urljoin(base_url, href))
             continue
-
         if "privacy" in text or "data protection" in text:
             candidates.append(urljoin(base_url, href))
-
     # Deduplicate while preserving order
     seen = set()
     out = []
@@ -216,7 +185,6 @@ def find_privacy_policy_links(html: str, base_url: str):
             seen.add(u)
             out.append(u)
     return out
-
 
 def check_privacy_policy_validated(html: str, base_url: str):
     """Validate at least one privacy policy link returns 200 and has meaningful content."""
@@ -238,7 +206,6 @@ def check_privacy_policy_validated(html: str, base_url: str):
         "detail": f"Privacy policy link(s) found but not validated: {', '.join(links[:3])}",
     }
 
-
 #it is detecting known third party tracker "fingerprints" inside <script> tags: google tag manager, google analytics, facebook connect,double click, hotjar
 #both script urls and inline js text are scanned
 #why matters dpc and gdpr - trackers often involve placing/reading identifiers on devices (ePrivacy consent requirement)
@@ -246,7 +213,6 @@ def check_privacy_policy_validated(html: str, base_url: str):
 #potentially sharing with third parties and international transfers (GDPR vendor + transfer compliance)
 # the tool doesnt verifiy all those deeper issues but it correctly flags: tracking technologies appear present; investigate consent and disclosures
 #limitations- if trackers load dynamically after render it can be missed
-
 def check_tracker_indicators(html: str):
     """
     Detect references to common tracking-related technologies in script tags.
@@ -294,7 +260,6 @@ def check_tracker_indicators(html: str):
 #important-  not every form requires consetn as lawful basis, some forms are necessary for contract performance or legitimate interests
 #but marketing consent must be a real opt-in(no preticked boxes). the dpc strongly treat pre ticked as invalid because it is not an affirmative action
 # it doesnt prove - doesnt read label text, so it cant check if consent is specific, it cant check if the checkbox if for terms acceptance vs marketing consent. - it doesnt confirm if a privaxy notice is displayed near the form
-
 def check_forms_structure(html: str):
     """Detect forms, personal-data fields, and consent checkbox patterns."""
     """
@@ -411,8 +376,6 @@ def extract_form_html(html: str) -> list[str]:
     forms = soup.find_all("form")
     return [str(form) for form in forms]
 
-
-
 # score and recommendations
 #each check has a weight, each check is pass/fail, score is justed weightes percentage of passed checks
 #gdpr and dpc- the score is not a legal metric, it is an internal evaluation metric for my prototype, a way to compare enterprises(small, medium, large) consitently
@@ -462,7 +425,6 @@ def calculate_weighted_score(results: dict) -> float:
                 earned += weight * 0.2
 
     return round((earned / total_weight) * 100, 1)
-
 
 def generate_recommendations(results: dict) -> list[str]:
     """Return recommendation strings for failed checks and advisory review indicators."""
